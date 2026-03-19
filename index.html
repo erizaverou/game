@@ -1,1 +1,160 @@
-aa
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ブロスタ風バトロワ</title>
+<style>
+body {
+  margin: 0;
+  background: #222;
+  color: white;
+  font-family: sans-serif;
+  text-align: center;
+}
+
+#game {
+  position: relative;
+  margin: 20px auto;
+  width: 400px;
+  height: 400px;
+  background: #3aa655;
+  border: 3px solid white;
+  overflow: hidden;
+}
+
+.player, .enemy {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.player {
+  background: cyan;
+}
+
+.enemy {
+  background: red;
+}
+
+.bullet {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: yellow;
+  border-radius: 50%;
+}
+</style>
+</head>
+<body>
+
+<h1>ブロスタ風バトロワ（簡易）</h1>
+<p>矢印キーで移動 / スペースで攻撃</p>
+
+<div id="game"></div>
+
+<script>
+const game = document.getElementById("game");
+
+let player = { x: 200, y: 200, el: null };
+let enemies = [];
+let bullets = [];
+
+function createPlayer() {
+  const el = document.createElement("div");
+  el.className = "player";
+  game.appendChild(el);
+  player.el = el;
+}
+
+function createEnemies() {
+  for (let i = 0; i < 10; i++) {
+    const el = document.createElement("div");
+    el.className = "enemy";
+    let enemy = {
+      x: Math.random() * 380,
+      y: Math.random() * 380,
+      el: el
+    };
+    enemies.push(enemy);
+    game.appendChild(el);
+  }
+}
+
+function update() {
+  player.el.style.left = player.x + "px";
+  player.el.style.top = player.y + "px";
+
+  enemies.forEach(e => {
+    e.el.style.left = e.x + "px";
+    e.el.style.top = e.y + "px";
+
+    // プレイヤーに近づく
+    let dx = player.x - e.x;
+    let dy = player.y - e.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    e.x += dx / dist * 0.5;
+    e.y += dy / dist * 0.5;
+  });
+
+  bullets.forEach((b, i) => {
+    b.x += b.dx;
+    b.y += b.dy;
+    b.el.style.left = b.x + "px";
+    b.el.style.top = b.y + "px";
+
+    // 敵に当たる判定
+    enemies.forEach((e, ei) => {
+      let dx = b.x - e.x;
+      let dy = b.y - e.y;
+      if (Math.sqrt(dx*dx + dy*dy) < 10) {
+        game.removeChild(e.el);
+        enemies.splice(ei, 1);
+      }
+    });
+
+    // 画面外
+    if (b.x < 0 || b.x > 400 || b.y < 0 || b.y > 400) {
+      game.removeChild(b.el);
+      bullets.splice(i, 1);
+    }
+  });
+
+  requestAnimationFrame(update);
+}
+
+// 操作
+window.addEventListener("keydown", e => {
+  if (e.key === "ArrowUp") player.y -= 5;
+  if (e.key === "ArrowDown") player.y += 5;
+  if (e.key === "ArrowLeft") player.x -= 5;
+  if (e.key === "ArrowRight") player.x += 5;
+
+  if (e.key === " ") {
+    shoot();
+  }
+});
+
+function shoot() {
+  const el = document.createElement("div");
+  el.className = "bullet";
+  game.appendChild(el);
+
+  let bullet = {
+    x: player.x,
+    y: player.y,
+    dx: 0,
+    dy: -5,
+    el: el
+  };
+
+  bullets.push(bullet);
+}
+
+createPlayer();
+createEnemies();
+update();
+</script>
+
+</body>
+</html>
