@@ -2,59 +2,46 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ブロスタ風（拡張版）</title>
+<title>ブロスタ風（最終強化版）</title>
 <style>
-body{margin:0;background:#111;color:#fff;font-family:sans-serif;text-align:center;}
+body{margin:0;background:#000;color:#fff;font-family:sans-serif;text-align:center;overflow:hidden;}
 #menu{position:absolute;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#111;gap:10px;}
-#game{display:none;position:relative;margin:0 auto;width:420px;height:420px;background:#2ecc71;border:3px solid #fff;overflow:hidden;}
-button{padding:10px 20px;font-size:16px;border:none;border-radius:10px;background:#00e5ff;}
-select{padding:5px;font-size:16px;}
-.player,.enemy{position:absolute;width:22px;height:22px;border-radius:50%;}
+#game{display:none;position:relative;width:100vw;height:100vh;background:#2ecc71;overflow:hidden;}
+.player,.enemy{position:absolute;width:20px;height:20px;border-radius:50%;}
 .player{background:#00e5ff;}
 .enemy{background:#ff4d4d;}
-.bullet{position:absolute;width:6px;height:6px;background:yellow;border-radius:50%;}
+.bullet{position:absolute;width:5px;height:5px;background:yellow;border-radius:50%;}
+.ball{position:absolute;width:15px;height:15px;background:white;border-radius:50%;}
+.gem{position:absolute;width:10px;height:10px;background:#00ffff;border-radius:50%;}
 #stick{position:absolute;bottom:20px;left:20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.1);}
-#attackBtn{position:absolute;bottom:20px;right:20px;width:80px;height:80px;border-radius:50%;background:#ff5252;}
-#ui{margin-top:5px;}
+#attackBtn{position:absolute;bottom:20px;right:20px;width:80px;height:80px;border-radius:50%;background:red;}
 </style>
 </head>
 <body>
 
 <div id="menu">
-  <h2>ブロスタ風ゲーム</h2>
-  <label>モード選択</label>
-  <select id="mode">
-    <option value="battle">バトロワ</option>
-    <option value="soccer">サッカー</option>
-    <option value="gem">エメラルドハント</option>
-  </select>
-
-  <label>キャラ選択</label>
-  <select id="char">
-    <option value="normal">バランス</option>
-    <option value="tank">タンク</option>
-    <option value="fast">スピード</option>
-  </select>
-
-  <button onclick="startGame()">開始</button>
+<h2>モード選択</h2>
+<select id="mode">
+<option value="battle">バトロワ</option>
+<option value="soccer">サッカー</option>
+<option value="gem">エメラルド</option>
+</select>
+<button onclick="startGame()">開始</button>
 </div>
 
 <div id="game"></div>
-<div id="ui">HP:<span id="hp">100</span></div>
-
 <div id="stick"></div>
 <div id="attackBtn"></div>
 
 <script>
 const game=document.getElementById("game");
 const menu=document.getElementById("menu");
-const hpText=document.getElementById("hp");
 
-let player,enemies,bullets,mode,charType;
+let player,enemies=[],bullets=[],mode;
+let ball,gems=[];
 
 function startGame(){
  mode=document.getElementById("mode").value;
- charType=document.getElementById("char").value;
  menu.style.display="none";
  game.style.display="block";
  init();
@@ -62,84 +49,90 @@ function startGame(){
 
 function init(){
  game.innerHTML="";
- bullets=[];
+ player={x:0,y:0};
+ enemies=[];bullets=[];gems=[];
 
- // キャラ性能
- let speed=1,hp=100;
- if(charType==="tank"){hp=150; speed=0.7;}
- if(charType==="fast"){hp=80; speed=1.5;}
+ for(let i=0;i<10;i++){
+  enemies.push({x:Math.random()*2000-1000,y:Math.random()*2000-1000,hp:50});
+ }
 
- player={x:200,y:200,hp,speed,el:null};
- createPlayer();
- createEnemies();
+ if(mode==="soccer"){
+  ball={x:0,y:0,el:document.createElement("div")};
+  ball.el.className="ball";
+  game.appendChild(ball.el);
+ }
+
+ if(mode==="gem"){
+  setInterval(()=>{
+    let g={x:Math.random()*2000-1000,y:Math.random()*2000-1000,el:document.createElement("div")};
+    g.el.className="gem";
+    game.appendChild(g.el);
+    gems.push(g);
+  },2000);
+ }
+
  update();
 }
 
-function createPlayer(){
- let el=document.createElement("div"); el.className="player";
- game.appendChild(el); player.el=el;
-}
-
-function createEnemies(){
- enemies=[];
- for(let i=0;i<10;i++){
-  let el=document.createElement("div"); el.className="enemy";
-  enemies.push({x:Math.random()*380,y:Math.random()*380,hp:40,speed:0.5,el});
-  game.appendChild(el);
- }
-}
-
-// エイム（近い敵を狙う）
-function getNearestEnemy(){
- let min=9999,target=null;
- enemies.forEach(e=>{
-  let d=Math.hypot(player.x-e.x,player.y-e.y);
-  if(d<min){min=d;target=e;}
- });
- return target;
-}
-
 function shoot(){
- let target=getNearestEnemy();
+ let targets=[...enemies].sort(()=>Math.random()-0.5); // 分散ターゲット
+ let target=targets[0];
  if(!target)return;
- let angle=Math.atan2(target.y-player.y,target.x-player.x);
- let el=document.createElement("div"); el.className="bullet";
- game.appendChild(el);
- bullets.push({x:player.x,y:player.y,dx:Math.cos(angle)*6,dy:Math.sin(angle)*6,el});
+ let dx=target.x-player.x,dy=target.y-player.y;
+ let d=Math.hypot(dx,dy);
+ bullets.push({x:player.x,y:player.y,dx:dx/d*10,dy:dy/d*10});
 }
 
 function update(){
- player.el.style.left=player.x+"px";
- player.el.style.top=player.y+"px";
+ game.innerHTML="";
 
- enemies.forEach((e,ei)=>{
-  let dx=player.x-e.x,dy=player.y-e.y,d=Math.hypot(dx,dy);
-  e.x+=dx/d*e.speed;
-  e.y+=dy/d*e.speed;
-  if(d<15) player.hp-=0.2;
-  if(e.hp<=0){game.removeChild(e.el);enemies.splice(ei,1);} 
-  e.el.style.left=e.x+"px"; e.el.style.top=e.y+"px";
+ // 一人称視点（プレイヤー中心）
+ enemies.forEach(e=>{
+  let screenX=window.innerWidth/2+(e.x-player.x);
+  let screenY=window.innerHeight/2+(e.y-player.y);
+
+  if(Math.abs(screenX-window.innerWidth/2)<500 && Math.abs(screenY-window.innerHeight/2)<500){
+    let el=document.createElement("div"); el.className="enemy";
+    el.style.left=screenX+"px";
+    el.style.top=screenY+"px";
+    game.appendChild(el);
+  }
+
+  // AI（ランダム＋追尾）
+  let dx=player.x-e.x,dy=player.y-e.y;
+  let d=Math.hypot(dx,dy);
+  if(d<300){e.x+=dx/d*0.5; e.y+=dy/d*0.5;} else {e.x+=Math.random()-0.5; e.y+=Math.random()-0.5;}
+
+  if(d<20) alert("やられた");
  });
 
- bullets.forEach((b,bi)=>{
+ bullets.forEach((b,i)=>{
   b.x+=b.dx; b.y+=b.dy;
-  b.el.style.left=b.x+"px"; b.el.style.top=b.y+"px";
-  enemies.forEach(e=>{if(Math.hypot(b.x-e.x,b.y-e.y)<10){e.hp-=10;}});
-  if(b.x<0||b.x>420||b.y<0||b.y>420){game.removeChild(b.el);bullets.splice(bi,1);} 
+  enemies.forEach(e=>{
+    if(Math.hypot(b.x-e.x,b.y-e.y)<15){e.hp-=20;}
+  });
  });
 
- hpText.textContent=Math.floor(player.hp);
+ enemies=enemies.filter(e=>e.hp>0);
 
- // モード処理
- if(mode==="battle" && enemies.length===0){alert("勝利");location.reload();}
- if(mode==="soccer"){
-   // 簡易: 一定時間生存で勝利
+ // サッカー
+ if(mode==="soccer" && ball){
+  let dx=player.x-ball.x,dy=player.y-ball.y;
+  if(Math.hypot(dx,dy)<30){ball.x+=dx*-0.5; ball.y+=dy*-0.5;}
+  let el=ball.el;
+  el.style.left=window.innerWidth/2+(ball.x-player.x)+"px";
+  el.style.top=window.innerHeight/2+(ball.y-player.y)+"px";
  }
+
+ // エメラルド
  if(mode==="gem"){
-   // 簡易: 時間経過で勝利
+  gems.forEach((g,i)=>{
+    let dx=player.x-g.x,dy=player.y-g.y;
+    if(Math.hypot(dx,dy)<30){gems.splice(i,1);} // 回収
+    g.el.style.left=window.innerWidth/2+(g.x-player.x)+"px";
+    g.el.style.top=window.innerHeight/2+(g.y-player.y)+"px";
+  });
  }
-
- if(player.hp<=0){alert("負け");location.reload();}
 
  requestAnimationFrame(update);
 }
@@ -155,8 +148,8 @@ stick.addEventListener("touchmove",e=>{
  let rect=stick.getBoundingClientRect();
  let dx=t.clientX-(rect.left+50);
  let dy=t.clientY-(rect.top+50);
- player.x+=dx*0.03*player.speed;
- player.y+=dy*0.03*player.speed;
+ player.x+=dx*0.2;
+ player.y+=dy*0.2;
 });
 
 // 攻撃
