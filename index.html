@@ -2,159 +2,130 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ブロスタ風バトロワ</title>
+<title>ブロスタ風バトロワ（強化版）</title>
 <style>
-body {
-  margin: 0;
-  background: #222;
-  color: white;
-  font-family: sans-serif;
-  text-align: center;
-}
-
-#game {
-  position: relative;
-  margin: 20px auto;
-  width: 400px;
-  height: 400px;
-  background: #3aa655;
-  border: 3px solid white;
-  overflow: hidden;
-}
-
-.player, .enemy {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-}
-
-.player {
-  background: cyan;
-}
-
-.enemy {
-  background: red;
-}
-
-.bullet {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  background: yellow;
-  border-radius: 50%;
-}
+body { margin:0; background:#1e1e1e; color:white; font-family:sans-serif; text-align:center; }
+#game { position:relative; margin:10px auto; width:420px; height:420px; background:#3cb371; border:3px solid #fff; overflow:hidden; }
+.player,.enemy { position:absolute; width:20px; height:20px; border-radius:50%; }
+.player { background:#00e5ff; }
+.enemy { background:#ff5252; }
+.bullet { position:absolute; width:6px; height:6px; background:yellow; border-radius:50%; }
+#ui { margin-top:5px; }
+#hp { color:#ff8080; }
 </style>
 </head>
 <body>
-
-<h1>ブロスタ風バトロワ（簡易）</h1>
-<p>矢印キーで移動 / スペースで攻撃</p>
-
+<h2>ブロスタ風バトロワ（強化版）</h2>
+<p>移動:矢印キー / 攻撃:マウスクリック</p>
 <div id="game"></div>
-
+<div id="ui">HP: <span id="hp">100</span></div>
 <script>
 const game = document.getElementById("game");
+const hpText = document.getElementById("hp");
 
-let player = { x: 200, y: 200, el: null };
+let player = { x:200, y:200, hp:100, el:null };
 let enemies = [];
 let bullets = [];
+let circleRadius = 200;
 
-function createPlayer() {
-  const el = document.createElement("div");
-  el.className = "player";
-  game.appendChild(el);
-  player.el = el;
+function createPlayer(){
+  let el=document.createElement("div"); el.className="player";
+  game.appendChild(el); player.el=el;
 }
 
-function createEnemies() {
-  for (let i = 0; i < 10; i++) {
-    const el = document.createElement("div");
-    el.className = "enemy";
-    let enemy = {
-      x: Math.random() * 380,
-      y: Math.random() * 380,
-      el: el
-    };
-    enemies.push(enemy);
+function createEnemies(){
+  for(let i=0;i<10;i++){
+    let el=document.createElement("div"); el.className="enemy";
+    let type=i%3;
+    enemies.push({
+      x:Math.random()*380,
+      y:Math.random()*380,
+      speed:0.3+Math.random()*0.7,
+      hp:20+type*10,
+      el
+    });
     game.appendChild(el);
   }
 }
 
-function update() {
-  player.el.style.left = player.x + "px";
-  player.el.style.top = player.y + "px";
+function shoot(mx,my){
+  let angle=Math.atan2(my-player.y, mx-player.x);
+  let el=document.createElement("div"); el.className="bullet";
+  game.appendChild(el);
+  bullets.push({ x:player.x, y:player.y, dx:Math.cos(angle)*5, dy:Math.sin(angle)*5, el });
+}
 
-  enemies.forEach(e => {
-    e.el.style.left = e.x + "px";
-    e.el.style.top = e.y + "px";
+function update(){
+  // 安全地帯縮小
+  circleRadius -= 0.02;
 
-    // プレイヤーに近づく
-    let dx = player.x - e.x;
-    let dy = player.y - e.y;
-    let dist = Math.sqrt(dx*dx + dy*dy);
-    e.x += dx / dist * 0.5;
-    e.y += dy / dist * 0.5;
+  player.el.style.left=player.x+"px";
+  player.el.style.top=player.y+"px";
+
+  // 円外ダメージ
+  let cx=210, cy=210;
+  let dist=Math.hypot(player.x-cx, player.y-cy);
+  if(dist>circleRadius) player.hp-=0.1;
+
+  enemies.forEach((e,ei)=>{
+    e.el.style.left=e.x+"px";
+    e.el.style.top=e.y+"px";
+
+    let dx=player.x-e.x, dy=player.y-e.y;
+    let d=Math.hypot(dx,dy);
+    e.x+=dx/d*e.speed;
+    e.y+=dy/d*e.speed;
+
+    // 接触ダメージ
+    if(d<15) player.hp-=0.3;
+
+    if(e.hp<=0){ game.removeChild(e.el); enemies.splice(ei,1); }
   });
 
-  bullets.forEach((b, i) => {
-    b.x += b.dx;
-    b.y += b.dy;
-    b.el.style.left = b.x + "px";
-    b.el.style.top = b.y + "px";
+  bullets.forEach((b,bi)=>{
+    b.x+=b.dx; b.y+=b.dy;
+    b.el.style.left=b.x+"px";
+    b.el.style.top=b.y+"px";
 
-    // 敵に当たる判定
-    enemies.forEach((e, ei) => {
-      let dx = b.x - e.x;
-      let dy = b.y - e.y;
-      if (Math.sqrt(dx*dx + dy*dy) < 10) {
-        game.removeChild(e.el);
-        enemies.splice(ei, 1);
-      }
+    enemies.forEach(e=>{
+      let d=Math.hypot(b.x-e.x,b.y-e.y);
+      if(d<10){ e.hp-=10; }
     });
 
-    // 画面外
-    if (b.x < 0 || b.x > 400 || b.y < 0 || b.y > 400) {
+    if(b.x<0||b.x>420||b.y<0||b.y>420){
       game.removeChild(b.el);
-      bullets.splice(i, 1);
+      bullets.splice(bi,1);
     }
   });
 
+  hpText.textContent=Math.max(0,Math.floor(player.hp));
+
+  if(player.hp<=0){ alert("ゲームオーバー"); location.reload(); }
+  if(enemies.length===0){ alert("勝利！"); location.reload(); }
+
+  drawCircle();
   requestAnimationFrame(update);
 }
 
-// 操作
-window.addEventListener("keydown", e => {
-  if (e.key === "ArrowUp") player.y -= 5;
-  if (e.key === "ArrowDown") player.y += 5;
-  if (e.key === "ArrowLeft") player.x -= 5;
-  if (e.key === "ArrowRight") player.x += 5;
+function drawCircle(){
+  game.style.boxShadow=`inset 0 0 0 ${420-circleRadius*2}px rgba(0,0,0,0.5)`;
+}
 
-  if (e.key === " ") {
-    shoot();
-  }
+window.addEventListener("keydown",e=>{
+  if(e.key==="ArrowUp") player.y-=5;
+  if(e.key==="ArrowDown") player.y+=5;
+  if(e.key==="ArrowLeft") player.x-=5;
+  if(e.key==="ArrowRight") player.x+=5;
 });
 
-function shoot() {
-  const el = document.createElement("div");
-  el.className = "bullet";
-  game.appendChild(el);
-
-  let bullet = {
-    x: player.x,
-    y: player.y,
-    dx: 0,
-    dy: -5,
-    el: el
-  };
-
-  bullets.push(bullet);
-}
+game.addEventListener("click",e=>{
+  const rect=game.getBoundingClientRect();
+  shoot(e.clientX-rect.left, e.clientY-rect.top);
+});
 
 createPlayer();
 createEnemies();
 update();
 </script>
-
 </body>
 </html>
