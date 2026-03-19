@@ -2,128 +2,157 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ブロスタ風バトロワ（強化版）</title>
+<title>ブロスタ風（ガチ版）</title>
 <style>
-body { margin:0; background:#1e1e1e; color:white; font-family:sans-serif; text-align:center; }
-#game { position:relative; margin:10px auto; width:420px; height:420px; background:#3cb371; border:3px solid #fff; overflow:hidden; }
-.player,.enemy { position:absolute; width:20px; height:20px; border-radius:50%; }
-.player { background:#00e5ff; }
-.enemy { background:#ff5252; }
-.bullet { position:absolute; width:6px; height:6px; background:yellow; border-radius:50%; }
-#ui { margin-top:5px; }
-#hp { color:#ff8080; }
+body{margin:0;background:#111;color:#fff;text-align:center;font-family:sans-serif;}
+#game{position:relative;margin:10px auto;width:420px;height:420px;background:#2ecc71;border:3px solid #fff;overflow:hidden;}
+.player,.enemy{position:absolute;width:22px;height:22px;border-radius:50%;}
+.player{background:#00e5ff;}
+.enemy{background:#ff4d4d;}
+.bullet{position:absolute;width:6px;height:6px;background:yellow;border-radius:50%;}
+.wall{position:absolute;background:#555;}
+.grass{position:absolute;background:#1e7f3f;opacity:0.6;}
+#ui{margin-top:5px;}
 </style>
 </head>
 <body>
-<h2>ブロスタ風バトロワ（強化版）</h2>
-<p>移動:矢印キー / 攻撃:マウスクリック</p>
+<h3>ブロスタ風（ほぼ再現）</h3>
+<p>移動:矢印 / 攻撃:クリック / 必殺:Z</p>
 <div id="game"></div>
-<div id="ui">HP: <span id="hp">100</span></div>
+<div id="ui">HP:<span id="hp">100</span> 必殺:<span id="ult">0</span>%</div>
 <script>
-const game = document.getElementById("game");
-const hpText = document.getElementById("hp");
+const game=document.getElementById("game");
+const hpText=document.getElementById("hp");
+const ultText=document.getElementById("ult");
 
-let player = { x:200, y:200, hp:100, el:null };
-let enemies = [];
-let bullets = [];
-let circleRadius = 200;
+let player={x:200,y:200,hp:100,ult:0,el:null};
+let enemies=[],bullets=[],walls=[],grass=[];
+let radius=200;
 
 function createPlayer(){
-  let el=document.createElement("div"); el.className="player";
-  game.appendChild(el); player.el=el;
+ let el=document.createElement("div"); el.className="player";
+ game.appendChild(el); player.el=el;
+}
+
+function createMap(){
+ // 壁
+ for(let i=0;i<5;i++){
+  let el=document.createElement("div"); el.className="wall";
+  let w=60,h=20;
+  let x=Math.random()*360,y=Math.random()*360;
+  el.style.width=w+"px"; el.style.height=h+"px";
+  el.style.left=x+"px"; el.style.top=y+"px";
+  walls.push({x,y,w,h,el}); game.appendChild(el);
+ }
+ // 草
+ for(let i=0;i<5;i++){
+  let el=document.createElement("div"); el.className="grass";
+  let size=60;
+  let x=Math.random()*360,y=Math.random()*360;
+  el.style.width=size+"px"; el.style.height=size+"px";
+  el.style.left=x+"px"; el.style.top=y+"px";
+  grass.push({x,y,size,el}); game.appendChild(el);
+ }
 }
 
 function createEnemies(){
-  for(let i=0;i<10;i++){
-    let el=document.createElement("div"); el.className="enemy";
-    let type=i%3;
-    enemies.push({
-      x:Math.random()*380,
-      y:Math.random()*380,
-      speed:0.3+Math.random()*0.7,
-      hp:20+type*10,
-      el
-    });
-    game.appendChild(el);
-  }
+ for(let i=0;i<10;i++){
+  let el=document.createElement("div"); el.className="enemy";
+  enemies.push({x:Math.random()*380,y:Math.random()*380,hp:40,speed:0.5,el});
+  game.appendChild(el);
+ }
 }
 
-function shoot(mx,my){
-  let angle=Math.atan2(my-player.y, mx-player.x);
+function shoot(mx,my,spread=1,count=1){
+ for(let i=0;i<count;i++){
+  let angle=Math.atan2(my-player.y,mx-player.x)+(Math.random()-0.5)*spread;
   let el=document.createElement("div"); el.className="bullet";
   game.appendChild(el);
-  bullets.push({ x:player.x, y:player.y, dx:Math.cos(angle)*5, dy:Math.sin(angle)*5, el });
+  bullets.push({x:player.x,y:player.y,dx:Math.cos(angle)*6,dy:Math.sin(angle)*6,el});
+ }
+}
+
+function ult(){
+ if(player.ult<100) return;
+ player.ult=0;
+ shoot(player.x,player.y,Math.PI*2,20);
+}
+
+function collisionRect(px,py){
+ return walls.some(w=>px>w.x&&px<w.x+w.w&&py>w.y&&py<w.y+w.h);
+}
+
+function inGrass(px,py){
+ return grass.some(g=>px>g.x&&px<g.x+g.size&&py>g.y&&py<g.y+g.size);
 }
 
 function update(){
-  // 安全地帯縮小
-  circleRadius -= 0.02;
+ radius-=0.01;
+ player.el.style.left=player.x+"px";
+ player.el.style.top=player.y+"px";
 
-  player.el.style.left=player.x+"px";
-  player.el.style.top=player.y+"px";
+ let cx=210,cy=210;
+ if(Math.hypot(player.x-cx,player.y-cy)>radius) player.hp-=0.1;
 
-  // 円外ダメージ
-  let cx=210, cy=210;
-  let dist=Math.hypot(player.x-cx, player.y-cy);
-  if(dist>circleRadius) player.hp-=0.1;
+ enemies.forEach((e,ei)=>{
+  let dx=player.x-e.x,dy=player.y-e.y,d=Math.hypot(dx,dy);
+  e.x+=dx/d*e.speed; e.y+=dy/d*e.speed;
 
-  enemies.forEach((e,ei)=>{
-    e.el.style.left=e.x+"px";
-    e.el.style.top=e.y+"px";
+  if(inGrass(e.x,e.y)&&!inGrass(player.x,player.y)) e.el.style.opacity=0.2;
+  else e.el.style.opacity=1;
 
-    let dx=player.x-e.x, dy=player.y-e.y;
-    let d=Math.hypot(dx,dy);
-    e.x+=dx/d*e.speed;
-    e.y+=dy/d*e.speed;
+  if(d<15) player.hp-=0.2;
+  if(e.hp<=0){game.removeChild(e.el);enemies.splice(ei,1);player.ult+=20;}
 
-    // 接触ダメージ
-    if(d<15) player.hp-=0.3;
+  e.el.style.left=e.x+"px";
+  e.el.style.top=e.y+"px";
+ });
 
-    if(e.hp<=0){ game.removeChild(e.el); enemies.splice(ei,1); }
+ bullets.forEach((b,bi)=>{
+  b.x+=b.dx; b.y+=b.dy;
+  b.el.style.left=b.x+"px";
+  b.el.style.top=b.y+"px";
+
+  if(collisionRect(b.x,b.y)){
+   game.removeChild(b.el); bullets.splice(bi,1); return;
+  }
+
+  enemies.forEach(e=>{
+   if(Math.hypot(b.x-e.x,b.y-e.y)<10){ e.hp-=10; player.ult+=5; }
   });
 
-  bullets.forEach((b,bi)=>{
-    b.x+=b.dx; b.y+=b.dy;
-    b.el.style.left=b.x+"px";
-    b.el.style.top=b.y+"px";
+  if(b.x<0||b.x>420||b.y<0||b.y>420){
+   game.removeChild(b.el); bullets.splice(bi,1);
+  }
+ });
 
-    enemies.forEach(e=>{
-      let d=Math.hypot(b.x-e.x,b.y-e.y);
-      if(d<10){ e.hp-=10; }
-    });
+ hpText.textContent=Math.floor(player.hp);
+ ultText.textContent=Math.min(100,Math.floor(player.ult));
 
-    if(b.x<0||b.x>420||b.y<0||b.y>420){
-      game.removeChild(b.el);
-      bullets.splice(bi,1);
-    }
-  });
+ if(player.hp<=0){alert("ゲームオーバー");location.reload();}
+ if(enemies.length===0){alert("勝利！");location.reload();}
 
-  hpText.textContent=Math.max(0,Math.floor(player.hp));
-
-  if(player.hp<=0){ alert("ゲームオーバー"); location.reload(); }
-  if(enemies.length===0){ alert("勝利！"); location.reload(); }
-
-  drawCircle();
-  requestAnimationFrame(update);
-}
-
-function drawCircle(){
-  game.style.boxShadow=`inset 0 0 0 ${420-circleRadius*2}px rgba(0,0,0,0.5)`;
+ game.style.boxShadow=`inset 0 0 0 ${420-radius*2}px rgba(0,0,0,0.6)`;
+ requestAnimationFrame(update);
 }
 
 window.addEventListener("keydown",e=>{
-  if(e.key==="ArrowUp") player.y-=5;
-  if(e.key==="ArrowDown") player.y+=5;
-  if(e.key==="ArrowLeft") player.x-=5;
-  if(e.key==="ArrowRight") player.x+=5;
+ let nx=player.x,ny=player.y;
+ if(e.key==="ArrowUp") ny-=5;
+ if(e.key==="ArrowDown") ny+=5;
+ if(e.key==="ArrowLeft") nx-=5;
+ if(e.key==="ArrowRight") nx+=5;
+ if(!collisionRect(nx,ny)){player.x=nx;player.y=ny;}
+ if(e.key==="z"||e.key==="Z") ult();
 });
 
 game.addEventListener("click",e=>{
-  const rect=game.getBoundingClientRect();
-  shoot(e.clientX-rect.left, e.clientY-rect.top);
+ let r=game.getBoundingClientRect();
+ shoot(e.clientX-r.left,e.clientY-r.top,0.3,3);
 });
 
 createPlayer();
+createMap();
 createEnemies();
 update();
 </script>
